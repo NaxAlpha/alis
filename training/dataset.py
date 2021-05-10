@@ -100,7 +100,7 @@ class Dataset(torch.utils.data.Dataset):
 
         if self._xflip[idx]:
             assert image.ndim == 3 # CHW
-            image = image[:, :, ::-1]
+            image = image[:, ::-1, :]
 
         return {
             'image': image.copy(),
@@ -240,7 +240,7 @@ class ImageFolderDataset(Dataset):
     def __getstate__(self):
         return dict(super().__getstate__(), _zipfile=None)
 
-    def _load_raw_image(self, raw_idx):
+    def __load_raw_image(self, raw_idx):
         fname = self._image_fnames[raw_idx]
         with self._open_file(fname) as f:
             if pyspng is not None and self._file_ext(fname) == '.png':
@@ -251,6 +251,27 @@ class ImageFolderDataset(Dataset):
             image = image[:, :, np.newaxis] # HW => HWC
         image = image.transpose(2, 0, 1) # HWC => CHW
         return image
+    
+    def _load_raw_image(self, raw_idx):
+        output = self.__load_raw_image(raw_idx)
+        C, _, W = output.shape
+        for idx in range(1, 100):
+            if output.shape[1] > W:
+                break
+            if raw_idx - idx >= 0:
+                temp = self.__load_raw_image(raw_idx-idx)
+                output = np.concatenate((temp, output), 1)
+            if output.shape[1] > W:
+                break
+            if raw_idx + idx < len(self._image_fnames):
+                temp = self.__load_raw_image(raw_idx+idx)
+                output = np.concatenate((output, temp), 1)
+        C, H, W = output.shape
+        assert H >= W
+        if H > W:
+            y = np.random.randint(0, H-W+1)
+            output = output[:, y:y+W, :]
+        return output.transpose(0, 2, 1)
 
     def _load_raw_labels(self):
         fname = 'dataset.json'
