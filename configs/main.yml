@@ -29,7 +29,7 @@ project_release_dir:
 
 train_args:
   outdir: ${project_release_dir}
-  data: ${env.data_dir}/${dataset}.zip
+  data: ${env.data_dir}/${dataset}
   gpus: ${num_gpus}
   cfg: auto
   g_fmaps: 0.5
